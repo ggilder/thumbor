@@ -88,6 +88,9 @@ def main(arguments=None):
 
     server.start(1)
 
+    logging.info('Setting blocking log threshold to 0.25')
+    tornado.ioloop.IOLoop.instance().set_blocking_log_threshold(0.25)
+
     try:
         logging.debug('thumbor running at %s:%d' % (context.server.ip, context.server.port))
         tornado.ioloop.IOLoop.instance().start()
