@@ -14,6 +14,8 @@ import os
 import socket
 from os.path import expanduser, dirname
 
+from multiprocessing.reduction import recv_handle
+
 import tornado.ioloop
 from tornado.httpserver import HTTPServer
 
@@ -76,15 +78,22 @@ def main(arguments=None):
     if context.server.fd is not None:
         fd_number = get_as_integer(context.server.fd)
         if fd_number is None:
-            with open(context.server.fd, 'r') as sock:
-                fd_number = sock.fileno()
+            try:
+                with open(context.server.fd, 'r') as sock:
+                    fd_number = sock.fileno()
+            except IOError:
+                unix_socket = socket.socket(socket.AF_UNIX)
+                unix_socket.connect(context.server.fd)
+                fd_number = recv_handle(unix_socket)
 
         sock = socket.fromfd(fd_number,
                              socket.AF_INET | socket.AF_INET6,
                              socket.SOCK_STREAM)
         server.add_socket(sock)
+        server_location = 'fd %s' % context.server.fd
     else:
         server.bind(context.server.port, context.server.ip)
+        server_location = '%s:%d' % (context.server.ip, context.server.port)
 
     server.start(1)
 
@@ -92,7 +101,7 @@ def main(arguments=None):
     tornado.ioloop.IOLoop.instance().set_blocking_log_threshold(5)
 
     try:
-        logging.debug('thumbor running at %s:%d' % (context.server.ip, context.server.port))
+        logging.debug('thumbor running at %s' % server_location)
         tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
         print
